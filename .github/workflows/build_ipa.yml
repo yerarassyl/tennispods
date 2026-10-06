@@ -1,13 +1,28 @@
 name: Build iOS IPA
+
 on: [push, workflow_dispatch]
+
 jobs:
   build:
     runs-on: macos-14
+
     steps:
-      - uses: actions/checkout@v4
-      - run: brew install xcodegen
-      - run: xcodegen generate
-      - run: |
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || true
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build App (Unsigned)
+        run: |
           xcodebuild build \
             -project TennisPods.xcodeproj \
             -scheme TennisPods \
@@ -17,11 +32,15 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
-      - run: |
+
+      - name: Package into IPA
+        run: |
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/TennisPods.app Payload/
           zip -r TennisPods.ipa Payload
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: TennisPods-IPA
           path: TennisPods.ipa
