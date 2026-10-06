@@ -17,12 +17,12 @@ struct RacquetSceneContainerView: UIViewRepresentable {
         let scene = SCNScene()
         scnView.scene = scene
         
-        // Камера
+        // Камера: отдалена и сфокусирована так, чтобы видеть вращение ракетки от основания руки вверх
         let cameraNode = SCNNode()
         cameraNode.camera = SCNCamera()
         cameraNode.camera?.zNear = 0.1
         cameraNode.camera?.zFar = 100.0
-        cameraNode.position = SCNVector3(0, 0.8, 6.4)
+        cameraNode.position = SCNVector3(0, 1.6, 7.6)
         scene.rootNode.addChildNode(cameraNode)
         
         // Освещение (Студийный свет для реалистичного карбона и струн)
@@ -32,7 +32,7 @@ struct RacquetSceneContainerView: UIViewRepresentable {
         mainLight.light?.intensity = 1200
         mainLight.light?.castsShadow = true
         mainLight.position = SCNVector3(4, 9, 7)
-        mainLight.look(at: SCNVector3(0, 0.5, 0))
+        mainLight.look(at: SCNVector3(0, 1.8, 0))
         scene.rootNode.addChildNode(mainLight)
         
         let ambientLight = SCNNode()
@@ -49,12 +49,12 @@ struct RacquetSceneContainerView: UIViewRepresentable {
         rimLight.position = SCNVector3(-3.5, 3.5, -4.5)
         scene.rootNode.addChildNode(rimLight)
         
-        // 3D сетка пола
+        // 3D сетка пола (находится ровно под нижней точкой рукоятки y = 0)
         let floorGridNode = createFloorGrid()
-        floorGridNode.position = SCNVector3(0, -2.8, 0)
+        floorGridNode.position = SCNVector3(0, -0.05, 0)
         scene.rootNode.addChildNode(floorGridNode)
         
-        // Реалистичная ракетка
+        // Реалистичная ракетка (точка опоры y=0 в основании рукоятки)
         let racquet = RacquetModelNode()
         racquet.name = "racquetNode"
         racquet.position = SCNVector3(0, 0, 0)

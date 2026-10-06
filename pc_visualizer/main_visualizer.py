@@ -83,20 +83,20 @@ class GLRacketWidget(QtWidgets.QOpenGLWidget):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         GL.glLoadIdentity()
 
-        # Камера
-        GL.glTranslatef(0.0, -0.2, -self.cam_distance)
+        # Камера: приподнята и направлена на ракетку, закрепленную снизу в y=0
+        GL.glTranslatef(0.0, -1.8, -self.cam_distance)
         GL.glRotatef(self.cam_pitch, 1.0, 0.0, 0.0)
         GL.glRotatef(self.cam_yaw, 0.0, 1.0, 0.0)
 
         # 1. Сетка пола и оси координат
         self._draw_floor_grid()
 
-        # 2. Рендеринг ракетки с ориентацией от кватерниона
+        # 2. Рендеринг ракетки с вращением вокруг основания рукоятки (0, 0, 0)
         GL.glPushMatrix()
         
         # Преобразование кватерниона в матрицу вращения OpenGL
         rot_mat = self.current_quat.to_rotation_matrix()
-        GL.glMultMatrixf(rot_mat.T.flatten()) # OpenGL ожидает column-major (транспонируем)
+        GL.glMultMatrixf(rot_mat.T.flatten())
 
         self._draw_racket()
         GL.glPopMatrix()
@@ -106,9 +106,9 @@ class GLRacketWidget(QtWidgets.QOpenGLWidget):
         GL.glLineWidth(1.0)
         GL.glBegin(GL.GL_LINES)
         
-        size = 4.0
+        size = 5.0
         step = 0.5
-        y_floor = -2.6
+        y_floor = 0.0  # Сетка пола ровно под основанием рукоятки!
         GL.glColor4f(0.2, 0.25, 0.3, 0.5)
         
         x = -size
