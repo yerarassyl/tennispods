@@ -2,6 +2,7 @@ name: TennisPods
 options:
   bundleIdPrefix: com.tennispods
   xcodeVersion: "15.4"
+  compatibilityVersion: "Xcode 15.0"
   deploymentTarget:
     iOS: 16.0
 
