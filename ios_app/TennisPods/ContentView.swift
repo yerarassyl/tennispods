@@ -2,13 +2,13 @@ import SwiftUI
 import SceneKit
 import simd
 
-// MARK: - SceneKit UIViewRepresentable
+// MARK: - SceneKit Container
 struct RacquetSceneContainerView: UIViewRepresentable {
     @ObservedObject var motionManager: MotionManager
     
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
-        scnView.backgroundColor = UIColor(red: 0.08, green: 0.09, blue: 0.12, alpha: 1.0)
+        scnView.backgroundColor = UIColor(red: 0.07, green: 0.08, blue: 0.11, alpha: 1.0)
         scnView.antialiasingMode = .multisampling4X
         scnView.preferredFramesPerSecond = 60
         scnView.rendersContinuously = true
@@ -17,47 +17,44 @@ struct RacquetSceneContainerView: UIViewRepresentable {
         let scene = SCNScene()
         scnView.scene = scene
         
-        // 1. Камера
+        // Камера
         let cameraNode = SCNNode()
         cameraNode.camera = SCNCamera()
         cameraNode.camera?.zNear = 0.1
         cameraNode.camera?.zFar = 100.0
-        cameraNode.position = SCNVector3(0, 0.8, 6.2)
+        cameraNode.position = SCNVector3(0, 0.8, 6.4)
         scene.rootNode.addChildNode(cameraNode)
         
-        // 2. Освещение
-        // Направленный свет (Sun / Key Light)
+        // Освещение (Студийный свет для реалистичного карбона и струн)
         let mainLight = SCNNode()
         mainLight.light = SCNLight()
         mainLight.light?.type = .directional
-        mainLight.light?.intensity = 1100
+        mainLight.light?.intensity = 1200
         mainLight.light?.castsShadow = true
-        mainLight.position = SCNVector3(4, 8, 6)
+        mainLight.position = SCNVector3(4, 9, 7)
         mainLight.look(at: SCNVector3(0, 0.5, 0))
         scene.rootNode.addChildNode(mainLight)
         
-        // Заполняющий свет (Fill Ambient Light)
         let ambientLight = SCNNode()
         ambientLight.light = SCNLight()
         ambientLight.light?.type = .ambient
-        ambientLight.light?.intensity = 350
-        ambientLight.light?.color = UIColor(red: 0.7, green: 0.8, blue: 0.95, alpha: 1.0)
+        ambientLight.light?.intensity = 400
+        ambientLight.light?.color = UIColor(red: 0.75, green: 0.82, blue: 0.95, alpha: 1.0)
         scene.rootNode.addChildNode(ambientLight)
         
-        // Контровой свет (Rim Light) сзади ракетки
         let rimLight = SCNNode()
         rimLight.light = SCNLight()
         rimLight.light?.type = .omni
-        rimLight.light?.intensity = 600
-        rimLight.position = SCNVector3(-3, 3, -4)
+        rimLight.light?.intensity = 700
+        rimLight.position = SCNVector3(-3.5, 3.5, -4.5)
         scene.rootNode.addChildNode(rimLight)
         
-        // 3. Координатная пространственная сетка пола
+        // 3D сетка пола
         let floorGridNode = createFloorGrid()
-        floorGridNode.position = SCNVector3(0, -2.6, 0)
+        floorGridNode.position = SCNVector3(0, -2.8, 0)
         scene.rootNode.addChildNode(floorGridNode)
         
-        // 4. Модель ракетки
+        // Реалистичная ракетка
         let racquet = RacquetModelNode()
         racquet.name = "racquetNode"
         racquet.position = SCNVector3(0, 0, 0)
@@ -68,20 +65,18 @@ struct RacquetSceneContainerView: UIViewRepresentable {
     
     func updateUIView(_ uiView: SCNView, context: Context) {
         if let racquet = uiView.scene?.rootNode.childNode(withName: "racquetNode", recursively: false) as? RacquetModelNode {
-            // Мгновенное прямое обновление кватерниона сцены через SIMD
             racquet.updateOrientation(motionManager.currentOrientation)
         }
     }
     
-    /// Генерация 3D сетки для пола
     private func createFloorGrid() -> SCNNode {
         let rootGrid = SCNNode()
-        let gridSize: Float = 6.0
-        let step: Float = 0.6
-        let lineRadius: CGFloat = 0.008
+        let gridSize: Float = 6.4
+        let step: Float = 0.64
+        let lineRadius: CGFloat = 0.007
         
         let gridMaterial = SCNMaterial()
-        gridMaterial.diffuse.contents = UIColor(white: 0.28, alpha: 0.6)
+        gridMaterial.diffuse.contents = UIColor(white: 0.28, alpha: 0.5)
         
         var z = -gridSize / 2
         while z <= gridSize / 2 {
@@ -109,39 +104,64 @@ struct RacquetSceneContainerView: UIViewRepresentable {
     }
 }
 
-// MARK: - Главный UI Экран
+// MARK: - Главный Экран SwiftUI
 public struct ContentView: View {
     @StateObject private var motionManager = MotionManager()
-    @State private var showCalibrationAlert = false
+    @ObservedObject private var recorder = WorkoutRecorder.shared
+    
+    @State private var showSettings: Bool = false
+    @State private var githubToken: String = GitHubUploader.shared.personalAccessToken
+    @State private var alertMessage: String? = nil
+    @State private var showAlert: Bool = false
     
     public init() {}
     
     public var body: some View {
         ZStack {
-            // 3D Рендерер
+            // 3D SceneKit Canvas
             RacquetSceneContainerView(motionManager: motionManager)
                 .edgesIgnoringSafeArea(.all)
             
-            // Верхний HUD (Статус соединения)
+            // Верхний статус-бар и настройки
             VStack {
-                HStack {
+                HStack(spacing: 10) {
                     connectionBadge
                     Spacer()
-                    calibrationBadge
+                    recordingBadge
+                    settingsButton
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                
+                // Статус последней выгрузки (если есть)
+                if let status = recorder.lastUploadStatus {
+                    Text(status)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.black.opacity(0.65))
+                        .cornerRadius(12)
+                        .padding(.top, 6)
+                        .transition(.opacity)
+                }
                 
                 Spacer()
                 
-                // Обратный отсчет калибровки на экране
+                // Обратный отсчет калибровки
                 if motionManager.calibrationCountdown > 0 {
                     countdownBanner
                 }
                 
-                // Нижняя панель управления и телеметрии
-                controlAndTelemetryDashboard
+                // Нижняя панель тренировки и управления
+                dashboardPanel
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            settingsSheet
+        }
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("Тренировка"), message: Text(alertMessage ?? ""), dismissButton: .default(Text("OK")))
         }
         .onAppear {
             motionManager.startUpdates()
@@ -151,152 +171,212 @@ public struct ContentView: View {
         }
     }
     
-    // MARK: - View Components
+    // MARK: - Компоненты UI
     
     private var connectionBadge: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(motionManager.isConnected ? Color.green : Color.red)
-                .frame(width: 10, height: 10)
-                .shadow(color: motionManager.isConnected ? .green.opacity(0.8) : .red.opacity(0.8), radius: 4)
+                .fill(motionManager.isConnected ? Color.green : Color.orange)
+                .frame(width: 9, height: 9)
+                .shadow(color: motionManager.isConnected ? .green : .orange, radius: 4)
             
-            Text(motionManager.isConnected ? "AirPods Подключены" : "Поиск AirPods...")
+            Text(motionManager.isConnected ? "AirPods Активны" : "Поиск AirPods...")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
     }
     
-    private var calibrationBadge: some View {
-        HStack(spacing: 6) {
-            Image(systemName: motionManager.isCalibrated ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                .foregroundColor(motionManager.isCalibrated ? .green : .orange)
-            
-            Text(motionManager.isCalibrated ? "Откалибровано" : "Не откалибровано")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(0.9))
+    private var recordingBadge: some View {
+        Group {
+            if recorder.isRecording {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                    Text(timeString(from: recorder.recordingDuration))
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color.red.opacity(0.25))
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.red, lineWidth: 1))
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
+    }
+    
+    private var settingsButton: some View {
+        Button(action: { showSettings.toggle() }) {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 15))
+                .foregroundColor(.white.opacity(0.85))
+                .padding(8)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+        }
     }
     
     private var countdownBanner: some View {
-        VStack(spacing: 8) {
-            Text("Удерживайте ракетку неподвижно!")
-                .font(.system(size: 17, weight: .bold))
+        VStack(spacing: 6) {
+            Text("Калибровка нейтрали")
+                .font(.system(size: 15, weight: .bold))
                 .foregroundColor(.yellow)
             
             Text("\(motionManager.calibrationCountdown)")
-                .font(.system(size: 64, weight: .black, design: .rounded))
+                .font(.system(size: 56, weight: .black, design: .rounded))
                 .foregroundColor(.white)
-                .scaleEffect(1.2)
-                .animation(.easeInOut(duration: 0.3), value: motionManager.calibrationCountdown)
             
-            Text("Вертикально: обод вверх, струны к экрану")
-                .font(.system(size: 13, weight: .regular))
+            Text("Держите ракетку вертикально струнами к экрану")
+                .font(.system(size: 12))
                 .foregroundColor(.white.opacity(0.8))
         }
-        .padding(24)
+        .padding(20)
         .background(.ultraThinMaterial)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.yellow.opacity(0.6), lineWidth: 2)
-        )
-        .padding(.bottom, 20)
+        .cornerRadius(18)
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.yellow.opacity(0.5), lineWidth: 1.5))
+        .padding(.bottom, 16)
     }
     
-    private var controlAndTelemetryDashboard: some View {
-        VStack(spacing: 16) {
+    private var dashboardPanel: some View {
+        VStack(spacing: 12) {
             // Телеметрия углов и угловой скорости
-            HStack(spacing: 12) {
-                telemetryCard(title: "Pitch", value: String(format: "%+.1f°", motionManager.pitchDeg), icon: "arrow.up.and.down")
-                telemetryCard(title: "Roll", value: String(format: "%+.1f°", motionManager.rollDeg), icon: "arrow.left.and.right")
-                telemetryCard(title: "Yaw", value: String(format: "%+.1f°", motionManager.yawDeg), icon: "arrow.triangle.2.circlepath")
-                telemetryCard(title: "Скорость", value: String(format: "%.1f", motionManager.angularVelocityMagnitude), unit: "рад/с", icon: "speedometer")
+            HStack(spacing: 8) {
+                metricCell(title: "Pitch", value: String(format: "%+.1f°", motionManager.pitchDeg))
+                metricCell(title: "Roll", value: String(format: "%+.1f°", motionManager.rollDeg))
+                metricCell(title: "Yaw", value: String(format: "%+.1f°", motionManager.yawDeg))
+                metricCell(title: "Сэмплы", value: "\(recorder.recordedSampleCount)")
+            }
+            
+            // Главная кнопка Записи Тренировки
+            Button(action: {
+                toggleRecording()
+            }) {
+                HStack(spacing: 10) {
+                    Image(systemName: recorder.isRecording ? "stop.circle.fill" : "record.circle")
+                        .font(.system(size: 20))
+                    Text(recorder.isRecording ? "Завершить и выгрузить на GitHub" : "Начать запись тренировки")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(recorder.isRecording ? Color.red : Color.green)
+                .cornerRadius(14)
             }
             
             // Кнопки калибровки
-            HStack(spacing: 14) {
-                Button(action: {
-                    motionManager.startCalibrationCountdown()
-                }) {
+            HStack(spacing: 10) {
+                Button(action: { motionManager.startCalibrationCountdown() }) {
                     HStack {
                         Image(systemName: "timer")
                         Text("Калибровка (3 сек)")
                     }
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 11)
                     .background(Color.blue)
-                    .cornerRadius(14)
+                    .cornerRadius(11)
                 }
                 
-                Button(action: {
-                    motionManager.instantCalibrate()
-                }) {
-                    HStack {
-                        Image(systemName: "scope")
-                        Text("Быстрый Tare")
-                    }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.2))
-                    .cornerRadius(14)
+                Button(action: { motionManager.instantCalibrate() }) {
+                    Text("Быстрый Tare")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(Color.white.opacity(0.18))
+                        .cornerRadius(11)
                 }
                 
-                Button(action: {
-                    motionManager.resetCalibration()
-                }) {
+                Button(action: { motionManager.resetCalibration() }) {
                     Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 16)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white.opacity(0.75))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
                         .background(Color.white.opacity(0.12))
-                        .cornerRadius(14)
+                        .cornerRadius(11)
                 }
             }
         }
-        .padding(18)
+        .padding(16)
         .background(.ultraThinMaterial)
-        .cornerRadius(24)
-        .padding(.horizontal, 16)
+        .cornerRadius(22)
+        .padding(.horizontal, 14)
         .padding(.bottom, 10)
     }
     
-    private func telemetryCard(title: String, value: String, unit: String? = nil, icon: String) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 10))
-                    .foregroundColor(.gray)
-                Text(title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.gray)
-            }
-            
+    private func metricCell(title: String, value: String) -> some View {
+        VStack(spacing: 3) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.gray)
             Text(value)
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
-            
-            if let unit = unit {
-                Text(unit)
-                    .font(.system(size: 9))
-                    .foregroundColor(.gray)
-            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color.black.opacity(0.3))
-        .cornerRadius(10)
+        .padding(.vertical, 7)
+        .background(Color.black.opacity(0.35))
+        .cornerRadius(9)
+    }
+    
+    private func toggleRecording() {
+        if recorder.isRecording {
+            recorder.stopRecording(uploadToGitHub: true) { result in
+                switch result {
+                case .success(let link):
+                    alertMessage = "Тренировка успешно сохранена и отправлена на GitHub в папку records/!\n\(link)"
+                    showAlert = true
+                case .failure(let err):
+                    alertMessage = "Файл сохранен локально. Ошибка выгрузки на GitHub: \(err.localizedDescription)\nПроверьте GitHub Token в настройках."
+                    showAlert = true
+                }
+            }
+        } else {
+            recorder.startRecording()
+        }
+    }
+    
+    private var settingsSheet: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Выгрузка на GitHub (records/)")) {
+                    Text("Репозиторий: yerarassyl/tennispods")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    
+                    SecureField("GitHub Personal Access Token (PAT)", text: $githubToken)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    
+                    Button("Сохранить токен") {
+                        GitHubUploader.shared.personalAccessToken = githubToken
+                        showSettings = false
+                    }
+                    .font(.system(size: 14, weight: .bold))
+                }
+                
+                Section(header: Text("AirPods Сенсор (Вне ушей)")) {
+                    Text("• Функция AudioKeepAlive активирована автоматически.\n• В настройках iOS отключите: «Автообнаружение уха» (Automatic Ear Detection) в меню Bluetooth -> AirPods.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("Настройки")
+            .navigationBarItems(trailing: Button("Готово") { showSettings = false })
+        }
+    }
+    
+    private func timeString(from duration: TimeInterval) -> String {
+        let mins = Int(duration) / 60
+        let secs = Int(duration) % 60
+        return String(format: "%02d:%02d", mins, secs)
     }
 }

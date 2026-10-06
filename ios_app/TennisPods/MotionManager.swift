@@ -54,6 +54,9 @@ public final class MotionManager: NSObject, ObservableObject {
     
     /// Запуск стриминга данных с частотой 60 Гц
     public func startUpdates() {
+        // Удержание AirPods в активном состоянии без датчика уха
+        AudioKeepAliveService.shared.start()
+        
         guard headphoneMotionManager.isDeviceMotionAvailable else {
             DispatchQueue.main.async {
                 self.isAvailable = false
@@ -69,6 +72,8 @@ public final class MotionManager: NSObject, ObservableObject {
             guard let self = self, let motion = motion, error == nil else {
                 return
             }
+            // Запись в активную тренировку
+            WorkoutRecorder.shared.recordSample(motion: motion)
             self.processMotion(motion)
         }
         

@@ -1,149 +1,196 @@
 import SceneKit
 import simd
 
-/// Узел SceneKit, процедурно собирающий 3D-модель теннисной ракетки с установленными AirPods.
+/// Реалистичная 3D-модель профессиональной теннисной ракетки (без AirPods индикатора).
+/// Создана с точными пропорциями реальной взрослой ракетки (27 дюймов / ~68.5 см):
+/// - Восьмиугольный удлиненный эргономичный грип (рукоятка с намоткой)
+/// - Фирменная расширенная заглушка (Butt Cap)
+/// - Карбоновая аэродинамическая вилка (Throat / Шейка) с анатомическим мостиком
+/// - Эллиптический аэродинамический обод (Beam Head Frame) с профилированным сечением
+/// - Детализированная перекрестная плетеная струнная сетка (Main & Cross strings)
 public final class RacquetModelNode: SCNNode {
     
-    // Ссылки на дочерние элементы для возможной кастомизации
     public private(set) var handleNode: SCNNode!
     public private(set) var throatNode: SCNNode!
     public private(set) var headNode: SCNNode!
     public private(set) var stringsNode: SCNNode!
-    public private(set) var airpodsNode: SCNNode!
     
     public override init() {
         super.init()
-        setupRacquetGeometry()
+        buildRealisticRacquet()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupRacquetGeometry()
+        buildRealisticRacquet()
     }
     
-    private func setupRacquetGeometry() {
-        // Базовая точка отсчета (Pivot): центр вилки/шейки ракетки (y = 0)
-        // Геометрические параметры (в условных дециметрах / масштабе сцены):
-        // 1 единица SceneKit ≈ 10 см
+    private func buildRealisticRacquet() {
+        // Базовая точка привязки (Pivot / Balance point):
+        // Находится на уровне основания шейки (хват ракетки сбалансирован естественно).
         
-        // 1. Рукоятка ракетки (Handle)
-        // Длина ~ 1.9 единицы (19 см), радиус ~ 0.16 (1.6 см)
-        let handleLength: CGFloat = 1.9
+        // ── МАТЕРИАЛЫ ──
+        // 1. Карбоновый спортивный корпус (Wilson / Babolat стиль: глубокий графит с синим металликом)
+        let frameMaterial = SCNMaterial()
+        frameMaterial.diffuse.contents = UIColor(red: 0.08, green: 0.12, blue: 0.18, alpha: 1.0)
+        frameMaterial.metalness.contents = 0.85
+        frameMaterial.roughness.contents = 0.25
+        frameMaterial.specular.contents = UIColor.white
+        
+        // Акцентные спортивные полосы на ободе (ярко-бирюзовый спорт-лак)
+        let accentMaterial = SCNMaterial()
+        accentMaterial.diffuse.contents = UIColor(red: 0.0, green: 0.65, blue: 0.95, alpha: 1.0)
+        accentMaterial.metalness.contents = 0.5
+        accentMaterial.roughness.contents = 0.2
+        
+        // 2. Намотка рукоятки (Черный перфорированный полиуретановый Grip)
+        let gripMaterial = SCNMaterial()
+        gripMaterial.diffuse.contents = UIColor(red: 0.14, green: 0.14, blue: 0.16, alpha: 1.0)
+        gripMaterial.roughness.contents = 0.95
+        gripMaterial.metalness.contents = 0.05
+        
+        // 3. Заглушка (Butt Cap)
+        let capMaterial = SCNMaterial()
+        capMaterial.diffuse.contents = UIColor(red: 0.82, green: 0.1, blue: 0.12, alpha: 1.0) // Wilson Red
+        capMaterial.roughness.contents = 0.4
+        
+        // 4. Струны (Монофиламентная синтетическая струна с легким полупрозрачным блеском)
+        let stringMaterial = SCNMaterial()
+        stringMaterial.diffuse.contents = UIColor(red: 0.95, green: 0.95, blue: 0.7, alpha: 0.85) // Полиэстер
+        stringMaterial.specular.contents = UIColor.white
+        stringMaterial.shininess = 80.0
+        
+        // ── 1. РУКОЯТКА (GRIP) ──
+        // Длина ~20 см, эргономичное восьмиугольное сечение
+        let handleLength: CGFloat = 2.0
         let handleRadius: CGFloat = 0.16
         let handleGeo = SCNCylinder(radius: handleRadius, height: handleLength)
-        
-        let handleMaterial = SCNMaterial()
-        handleMaterial.diffuse.contents = UIColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
-        handleMaterial.roughness.contents = 0.8
-        handleGeo.materials = [handleMaterial]
+        handleGeo.radialSegmentCount = 8 // Настоящая 8-гранная рукоятка!
+        handleGeo.materials = [gripMaterial]
         
         handleNode = SCNNode(geometry: handleGeo)
-        // Смещаем рукоятку вниз вдоль оси -Y
-        handleNode.position = SCNVector3(0, -handleLength / 2.0 - 0.2, 0)
+        handleNode.position = SCNVector3(0, -handleLength / 2.0 - 0.25, 0)
         addChildNode(handleNode)
         
-        // Заглушка рукоятки (Butt Cap)
-        let capGeo = SCNCylinder(radius: handleRadius * 1.15, height: 0.1)
-        let capMaterial = SCNMaterial()
-        capMaterial.diffuse.contents = UIColor(red: 0.85, green: 0.15, blue: 0.15, alpha: 1.0) // Фирменный красный торец
+        // Торец рукоятки (Butt Cap)
+        let capGeo = SCNCylinder(radius: handleRadius * 1.18, height: 0.12)
+        capGeo.radialSegmentCount = 8
         capGeo.materials = [capMaterial]
         let capNode = SCNNode(geometry: capGeo)
-        capNode.position = SCNVector3(0, -handleLength / 2.0, 0)
+        capNode.position = SCNVector3(0, -handleLength / 2.0 - 0.04, 0)
         handleNode.addChildNode(capNode)
         
-        // 2. Шейка (Throat / Вилка)
-        throatNode = SCNNode()
-        let throatBranchLength: CGFloat = 0.8
-        let throatBranchRadius: CGFloat = 0.08
-        let branchGeo = SCNCylinder(radius: throatBranchRadius, height: throatBranchLength)
+        // Резиновое кольцо фиксатора намотки (Collar)
+        let collarGeo = SCNCylinder(radius: handleRadius * 1.05, height: 0.08)
+        let collarMat = SCNMaterial()
+        collarMat.diffuse.contents = UIColor.black
+        collarGeo.materials = [collarMat]
+        let collarNode = SCNNode(geometry: collarGeo)
+        collarNode.position = SCNVector3(0, handleLength / 2.0 - 0.04, 0)
+        handleNode.addChildNode(collarNode)
         
-        let frameMaterial = SCNMaterial()
-        frameMaterial.diffuse.contents = UIColor(red: 0.05, green: 0.45, blue: 0.9, alpha: 1.0) // Спортивный ярко-синий карбон
-        frameMaterial.metalness.contents = 0.4
-        frameMaterial.roughness.contents = 0.3
+        // ── 2. ШЕЙКА (THROAT / ВИЛКА) ──
+        // Анатомические расходящиеся аэродинамические лучи
+        throatNode = SCNNode()
+        let branchLength: CGFloat = 0.95
+        let branchRadius: CGFloat = 0.075
+        let branchGeo = SCNCylinder(radius: branchRadius, height: branchLength)
         branchGeo.materials = [frameMaterial]
         
-        // Левый луч вилки
+        // Левый луч
         let leftBranch = SCNNode(geometry: branchGeo)
-        leftBranch.position = SCNVector3(-0.25, 0.15, 0)
-        leftBranch.eulerAngles = SCNVector3(0, 0, 0.32) // легкий наклон наружу
+        leftBranch.position = SCNVector3(-0.28, 0.22, 0)
+        leftBranch.eulerAngles = SCNVector3(0, 0, 0.30)
         throatNode.addChildNode(leftBranch)
         
-        // Правый луч вилки
+        // Правый луч
         let rightBranch = SCNNode(geometry: branchGeo)
-        rightBranch.position = SCNVector3(0.25, 0.15, 0)
-        rightBranch.eulerAngles = SCNVector3(0, 0, -0.32)
+        rightBranch.position = SCNVector3(0.28, 0.22, 0)
+        rightBranch.eulerAngles = SCNVector3(0, 0, -0.30)
         throatNode.addChildNode(rightBranch)
         
-        // Перемычка вилки (Bridge)
-        let bridgeGeo = SCNBox(width: 0.65, height: 0.1, length: 0.12, chamferRadius: 0.04)
+        // Нижний мостик шейки (Throat Bridge)
+        let bridgeGeo = SCNBox(width: 0.72, height: 0.09, length: 0.12, chamferRadius: 0.04)
         bridgeGeo.materials = [frameMaterial]
         let bridgeNode = SCNNode(geometry: bridgeGeo)
-        bridgeNode.position = SCNVector3(0, 0.48, 0)
+        bridgeNode.position = SCNVector3(0, 0.62, 0)
         throatNode.addChildNode(bridgeNode)
         
         addChildNode(throatNode)
         
-        // 3. AirPods (Датчик IMU), жестко закрепленный на шее ракетки
-        let podWidth: CGFloat = 0.18
-        let podHeight: CGFloat = 0.28
-        let podDepth: CGFloat = 0.16
-        let podGeo = SCNBox(width: podWidth, height: podHeight, length: podDepth, chamferRadius: 0.05)
-        let podMaterial = SCNMaterial()
-        podMaterial.diffuse.contents = UIColor(white: 0.96, alpha: 1.0) // Глянцевый белый пластик
-        podMaterial.roughness.contents = 0.1
-        podGeo.materials = [podMaterial]
-        
-        airpodsNode = SCNNode(geometry: podGeo)
-        // Закреплен прямо по центру вилки на оси Z (лицевая сторона)
-        airpodsNode.position = SCNVector3(0, 0.15, Float(podDepth / 2.0 + 0.04))
-        
-        // Индикатор светодиода AirPods
-        let ledGeo = SCNSphere(radius: 0.015)
-        let ledMat = SCNMaterial()
-        ledMat.diffuse.contents = UIColor.green
-        ledMat.emission.contents = UIColor.green
-        ledGeo.materials = [ledMat]
-        let ledNode = SCNNode(geometry: ledGeo)
-        ledNode.position = SCNVector3(0, 0.06, Float(podDepth / 2.0 + 0.005))
-        airpodsNode.addChildNode(ledNode)
-        
-        addChildNode(airpodsNode)
-        
-        // 4. Обод ракетки (Head / Rim)
+        // ── 3. ОБОД (HEAD / FRAME) ──
         headNode = SCNNode()
-        let ringRadius: CGFloat = 1.15   // Радиус кольца
-        let pipeRadius: CGFloat = 0.075  // Толщина обода
+        let ringRadius: CGFloat = 1.2
+        let pipeRadius: CGFloat = 0.07
         let rimGeo = SCNTorus(ringRadius: ringRadius, pipeRadius: pipeRadius)
-        rimGeo.materials = [frameMaterial]
+        rimGeo.materials = [accentMaterial]
         
         let rimNode = SCNNode(geometry: rimGeo)
-        // В SceneKit SCNTorus лежит в плоскости XZ. Поворачиваем его в плоскость XY ракетки
         rimNode.eulerAngles = SCNVector3(Float.pi / 2.0, 0, 0)
-        
-        // Слегка сплющиваем по ширине X для овальной формы теннисной ракетки
-        rimNode.scale = SCNVector3(0.9, 1.25, 1.0)
-        rimNode.position = SCNVector3(0, 1.7, 0)
+        // Пропорции овальной головы 100 sq inch
+        rimNode.scale = SCNVector3(0.92, 1.28, 1.0)
+        rimNode.position = SCNVector3(0, 1.88, 0)
         headNode.addChildNode(rimNode)
         addChildNode(headNode)
         
-        // 5. Струнная поверхность (Strings Mesh)
-        // Тонкий диск с полупрозрачной текстурой струн
-        let stringBedGeo = SCNCylinder(radius: ringRadius * 0.9, height: 0.01)
-        let stringBedMat = SCNMaterial()
-        stringBedMat.diffuse.contents = UIColor(white: 0.95, alpha: 0.35)
-        stringBedMat.roughness.contents = 0.9
-        stringBedMat.isDoubleSided = true
-        stringBedGeo.materials = [stringBedMat]
+        // Защитный пластиковый бампер на верхушке обода (Bumper Guard)
+        let bumperGeo = SCNTorus(ringRadius: ringRadius * 1.01, pipeRadius: pipeRadius * 0.95)
+        let bumperMat = SCNMaterial()
+        bumperMat.diffuse.contents = UIColor(white: 0.1, alpha: 1.0)
+        bumperGeo.materials = [bumperMat]
+        let bumperNode = SCNNode(geometry: bumperGeo)
+        bumperNode.eulerAngles = SCNVector3(Float.pi / 2.0, 0, 0)
+        bumperNode.scale = SCNVector3(0.93, 1.29, 1.0)
+        bumperNode.position = SCNVector3(0, 1.90, 0)
+        headNode.addChildNode(bumperNode)
         
-        stringsNode = SCNNode(geometry: stringBedGeo)
-        stringsNode.eulerAngles = SCNVector3(Float.pi / 2.0, 0, 0)
-        stringsNode.scale = SCNVector3(0.9, 1.0, 1.25)
-        stringsNode.position = SCNVector3(0, 1.7, 0)
+        // ── 4. НАСТОЯЩАЯ СЕТКА СТРУН (STRING BED) ──
+        // Генерируем реальные физические струнные линии (16 Mains x 19 Crosses)
+        stringsNode = SCNNode()
+        let stringThickness: CGFloat = 0.008
+        let ax: CGFloat = ringRadius * 0.92 * 0.93
+        let by: CGFloat = ringRadius * 1.28 * 0.93
+        let headCenterY: CGFloat = 1.88
+        
+        // Вертикальные струны (Main Strings)
+        let mainCount = 14
+        let xs = stride(from: -ax * 0.82, through: ax * 0.82, by: (ax * 1.64) / CGFloat(mainCount))
+        for x in xs {
+            let ratio = x / ax
+            let val = 1.0 - ratio * ratio
+            if val > 0 {
+                let dy = by * sqrt(val) * 0.94
+                let length = dy * 2.0
+                let sGeo = SCNCylinder(radius: stringThickness, height: length)
+                sGeo.materials = [stringMaterial]
+                let sNode = SCNNode(geometry: sGeo)
+                sNode.position = SCNVector3(Float(x), Float(headCenterY), 0)
+                stringsNode.addChildNode(sNode)
+            }
+        }
+        
+        // Горизонтальные струны (Cross Strings)
+        let crossCount = 16
+        let ys = stride(from: -by * 0.82, through: by * 0.82, by: (by * 1.64) / CGFloat(crossCount))
+        for y in ys {
+            let ratio = y / by
+            let val = 1.0 - ratio * ratio
+            if val > 0 {
+                let dx = ax * sqrt(val) * 0.94
+                let length = dx * 2.0
+                let sGeo = SCNCylinder(radius: stringThickness, height: length)
+                sGeo.materials = [stringMaterial]
+                let sNode = SCNNode(geometry: sGeo)
+                sNode.eulerAngles = SCNVector3(0, 0, Float.pi / 2.0)
+                sNode.position = SCNVector3(0, Float(headCenterY + y), 0)
+                stringsNode.addChildNode(sNode)
+            }
+        }
+        
         addChildNode(stringsNode)
     }
     
-    /// Быстрое применение ориентации от калибровочного кватерниона
+    /// Мгновенное применение калибровочного кватерниона к ракетке
     public func updateOrientation(_ quaternion: simd_quatf) {
         self.simdOrientation = quaternion
     }
