@@ -1,0 +1,16 @@
+.DS_Store
+build/
+*.xcodeproj
+DerivedData/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+xcuserdata/
+*.ipa
+Payload/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+calibration.json

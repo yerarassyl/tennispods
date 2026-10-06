@@ -1,0 +1,32 @@
+name: TennisPods
+options:
+  bundleIdPrefix: com.tennispods
+  deploymentTarget:
+    iOS: 16.0
+  xcodeVersion: '15.0'
+
+targets:
+  TennisPods:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: ios_app/TennisPods
+    info:
+      path: ios_app/TennisPods/Info.plist
+      properties:
+        CFBundleDisplayName: TennisPods
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        NSMotionUsageDescription: "Требуется доступ к датчикам AirPods для отслеживания ориентации ракетки в реальном времени."
+        NSBluetoothAlwaysUsageDescription: "Требуется Bluetooth для обмена данными телеметрии с AirPods."
+        NSBluetoothPeripheralUsageDescription: "Требуется Bluetooth для обмена данными телеметрии с AirPods."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tennispods.tracker
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        GENERATE_INFOPLIST_FILE: "NO"
